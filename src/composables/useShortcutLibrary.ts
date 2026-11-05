@@ -202,6 +202,7 @@ export function useShortcutLibrary() {
   const options = reactive<LibraryOptions>(stored ? { ...stored.options } : { overwrite: false });
   const search = ref("");
   const creating = ref(false);
+  const refreshing = ref(false);
   const progress = reactive({ done: 0, total: 0 });
   const toasts = ref<ToastMessage[]>([]);
   const storagePath = ref("");
@@ -417,6 +418,38 @@ export function useShortcutLibrary() {
       });
     } catch {
       /* 状态检查失败时保留“未创建”，不打断创建流程 */
+    }
+  }
+
+  /** 手动刷新：外部删除或新增 .lnk 后，重新按磁盘真实状态更新所有行 */
+  async function refreshNow() {
+    if (refreshing.value) return;
+    if (creating.value) {
+      notify("正在创建快捷方式，完成后再刷新", "info");
+      return;
+    }
+    if (!programs.value.length) {
+      notify("清单里还没有程序", "info");
+      return;
+    }
+    if (!desktop) {
+      notify("浏览器预览无法读取磁盘，请在桌面应用里刷新", "info");
+      return;
+    }
+
+    refreshing.value = true;
+    try {
+      await refreshStatuses();
+      const existing = createdCount.value;
+      const planned = plannedCount.value;
+      notify(
+        existing
+          ? `已刷新：检测到 ${existing} / ${planned} 个快捷方式已存在`
+          : "已刷新：未检测到已存在的快捷方式",
+        "info"
+      );
+    } finally {
+      refreshing.value = false;
     }
   }
 
@@ -752,6 +785,7 @@ export function useShortcutLibrary() {
     options,
     search,
     creating,
+    refreshing,
     progress,
     toasts,
     storagePath,
@@ -764,6 +798,7 @@ export function useShortcutLibrary() {
     plannedCount,
     remainingCount,
     notify,
+    refreshNow,
     addPrograms,
     removeProgram,
     setIncluded,

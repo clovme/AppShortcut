@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import AppHeader from "./components/AppHeader.vue";
 import ProgramToolbar from "./components/ProgramToolbar.vue";
 import ProgramRow from "./components/ProgramRow.vue";
@@ -13,6 +13,7 @@ const {
   options,
   search,
   creating,
+  refreshing,
   progress,
   toasts,
   storagePath,
@@ -25,6 +26,7 @@ const {
   plannedCount,
   remainingCount,
   notify,
+  refreshNow,
   setAllIncluded,
   addPrograms,
   removeProgram,
@@ -68,6 +70,17 @@ async function handleAdd() {
     picking.value = false;
   }
 }
+
+function handleRefreshShortcut() {
+  void refreshNow();
+}
+
+onMounted(() => {
+  window.addEventListener("appshortcut:refresh", handleRefreshShortcut);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener("appshortcut:refresh", handleRefreshShortcut);
+});
 </script>
 
 <template>
@@ -82,8 +95,10 @@ async function handleAdd() {
             :included="includedCount"
             :search="search"
             :picking="picking"
+            :refreshing="refreshing"
             @update:search="search = $event"
             @add="handleAdd"
+            @refresh="refreshNow"
           />
 
           <div class="rows scroll-area">

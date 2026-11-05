@@ -45,7 +45,32 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  -webkit-user-select: none;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: default;
+}
+
+/* 只有输入类控件允许选中文字，其余区域保持桌面应用的“不可选中”手感 */
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+input,
+textarea {
+  cursor: text;
+}
+
+select {
+  cursor: pointer;
+}
+
+img {
+  -webkit-user-drag: none;
 }
 
 h1,

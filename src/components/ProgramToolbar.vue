@@ -1,9 +1,16 @@
 <script setup lang="ts">
-defineProps<{ total: number; included: number; search: string; picking: boolean }>();
+defineProps<{
+  total: number;
+  included: number;
+  search: string;
+  picking: boolean;
+  refreshing: boolean;
+}>();
 
 const emit = defineEmits<{
   (e: "update:search", value: string): void;
   (e: "add"): void;
+  (e: "refresh"): void;
 }>();
 
 function onSearchInput(event: Event) {
@@ -32,6 +39,34 @@ function onSearchInput(event: Event) {
           @input="onSearchInput"
         />
       </label>
+
+      <button
+        class="btn btn-refresh"
+        type="button"
+        :disabled="picking || refreshing"
+        title="重新读取磁盘上的快捷方式（F5 / Ctrl+R）"
+        @click="emit('refresh')"
+      >
+        <i v-if="refreshing" class="spinner" />
+        <svg v-else viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path
+            d="M13.1 8a5.1 5.1 0 1 1-1.5-3.6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+          />
+          <path
+            d="M13.3 3.1v3.2h-3.2"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        {{ refreshing ? "刷新中…" : "刷新" }}
+      </button>
 
       <button class="btn btn-add" type="button" :disabled="picking" @click="emit('add')">
         <i v-if="picking" class="spinner" />
@@ -127,6 +162,21 @@ function onSearchInput(event: Event) {
 
 .search input::placeholder {
   color: var(--text-3);
+}
+
+.btn-refresh {
+  height: 34px;
+  padding: 0 11px;
+  border-color: var(--line);
+  background: #ffffff;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  border-color: #b7c5d6;
+  background: #f7fbff;
+  color: var(--accent-strong);
 }
 
 .btn-add {
