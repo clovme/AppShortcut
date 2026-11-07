@@ -4,6 +4,8 @@ import AppHeader from "./components/AppHeader.vue";
 import ProgramToolbar from "./components/ProgramToolbar.vue";
 import ProgramRow from "./components/ProgramRow.vue";
 import PlanPanel from "./components/PlanPanel.vue";
+import ProcessManager from "./components/ProcessManager.vue";
+import EnvironmentManager from "./components/EnvironmentManager.vue";
 import ToastStack from "./components/ToastStack.vue";
 import { useShortcutLibrary } from "./composables/useShortcutLibrary";
 import { isTauri, pickPrograms } from "./services/shortcutService";
@@ -53,6 +55,8 @@ const allIncluded = computed(
 );
 const someIncluded = computed(() => includedCount.value > 0 && !allIncluded.value);
 const picking = ref(false);
+type AppView = "processes" | "environment" | "shortcuts";
+const view = ref<AppView>("processes");
 
 function toggleAll() {
   setAllIncluded(!allIncluded.value);
@@ -72,7 +76,7 @@ async function handleAdd() {
 }
 
 function handleRefreshShortcut() {
-  void refreshNow();
+  if (view.value === "shortcuts") void refreshNow();
 }
 
 onMounted(() => {
@@ -85,9 +89,22 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-shell">
-    <AppHeader :included="includedCount" :total="programs.length" />
+    <AppHeader
+      :included="includedCount"
+      :total="programs.length"
+      :view="view"
+      @switch="view = $event"
+    />
 
-    <div class="app-body">
+    <div v-if="view === 'processes'" class="app-body process-body">
+      <ProcessManager embedded />
+    </div>
+
+    <div v-else-if="view === 'environment'" class="app-body process-body">
+      <EnvironmentManager />
+    </div>
+
+    <div v-else class="app-body">
       <main class="workspace">
         <section class="panel list-panel">
           <ProgramToolbar
@@ -211,6 +228,10 @@ onBeforeUnmount(() => {
   gap: 16px;
   padding: 0 22px 20px;
   min-height: 0;
+}
+
+.process-body {
+  align-items: stretch;
 }
 
 .workspace {

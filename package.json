@@ -1,5 +1,5 @@
 {
-  "name": "shortcut",
+  "name": "WinKit",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview",
 	"tauri:dev": "tauri dev",
 	"tauri:build": "tauri build",
-	"tauri:icon": "pnpm tauri icon ./app-icon.svg",
+	"tauri:icon": "tauri icon ./app-icon.svg",
     "tauri": "tauri"
   },
   "dependencies": {

@@ -1,8 +1,16 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   ClearResult,
+  EnvironmentProfile,
+  EnvironmentProfileStore,
+  EnvironmentProfileVariable,
+  EnvironmentScope,
+  EnvironmentSnapshot,
+  EnvironmentVariable,
+  KillProcessesResult,
   LibraryFilePayload,
   PickedProgram,
+  ProcessSnapshot,
   ProgramIcon,
   ShortcutRequestItem,
   ShortcutResult,
@@ -35,6 +43,13 @@ export async function pickPrograms(): Promise<PickedProgram[]> {
     throw new Error("当前是浏览器预览，系统文件选择窗口只会在桌面应用中弹出");
   }
   return invoke<PickedProgram[]>("pick_programs");
+}
+
+export async function pickFolder(): Promise<string | null> {
+  if (!isTauri()) {
+    throw new Error("当前是浏览器预览，系统文件夹选择窗口只会在桌面应用中弹出");
+  }
+  return invoke<string | null>("pick_folder");
 }
 
 /**
@@ -98,8 +113,8 @@ export async function loadProgramIcons(paths: string[]): Promise<ProgramIcon[]> 
 }
 
 /**
- * 读取清单文件。Rust 侧优先读 exe 同目录的 shortcuts.json，
- * 读不到时回落到 %APPDATA%\AppShortcut\shortcuts.json。
+ * 读取清单文件。Rust 侧优先读 exe 同目录的 WinKit.json，
+ * 读不到时回落到 %APPDATA%\AppShortcut\WinKit.json。
  */
 export async function loadLibrary(): Promise<LibraryFilePayload | null> {
   if (!isTauri()) return null;
@@ -116,3 +131,222 @@ export async function saveLibrary(content: string): Promise<LibraryFilePayload> 
   }
   return invoke<LibraryFilePayload>("save_library", { content });
 }
+
+/**
+ * 读取当前用户能看到的所有进程。Rust 侧用 Toolhelp 快照拿 PID / 父 PID / 名称，
+ * 再按进程句柄补路径、工作集内存和线程数。
+ */
+export async function listProcesses(): Promise<ProcessSnapshot> {
+  if (!isTauri()) {
+    return { processes: [], currentPid: 0 };
+  }
+  return invoke<ProcessSnapshot>("list_processes");
+}
+
+/**
+ * 结束指定 PID。includeTree 为 true 时会先收集子进程，按子进程 → 父进程的顺序结束。
+ * Rust 侧会跳过自身、PID 0/4 和 Windows 关键进程，并把失败原因带回前端。
+ */
+export async function killProcesses(
+  pids: number[],
+  includeTree: boolean
+): Promise<KillProcessesResult> {
+  if (!isTauri()) {
+    throw new Error("浏览器预览无法结束真实进程");
+  }
+  return invoke<KillProcessesResult>("kill_processes", { pids, includeTree });
+}
+
+const MOCK_ENVIRONMENT: EnvironmentSnapshot = {
+  user: {
+    writable: true,
+    error: null,
+    variables: [
+      { name: "GOPATH", value: "D:\\develop\\gopath", expand: false },
+      { name: "JAVA_HOME", value: "D:\\application\\jdk-21", expand: false },
+      { name: "Path", value: "%USERPROFILE%\\AppData\\Local\\Microsoft\\WindowsApps", expand: true },
+      { name: "TEMP", value: "%USERPROFILE%\\AppData\\Local\\Temp", expand: true },
+    ],
+  },
+  system: {
+    writable: false,
+    error: null,
+    variables: [
+      { name: "ComSpec", value: "%SystemRoot%\\system32\\cmd.exe", expand: true },
+      { name: "DriverData", value: "C:\\Windows\\System32\\Drivers\\DriverData", expand: false },
+      { name: "JAVA_HOME", value: "D:\\application\\jdk-21", expand: false },
+      { name: "Path", value: "%SystemRoot%;%SystemRoot%\\System32", expand: true },
+    ],
+  },
+};
+
+/**
+ * 读取用户 / 系统环境变量。浏览器预览返回示例数据，方便检查页面布局。
+ */
+export async function loadEnvironmentVariables(): Promise<EnvironmentSnapshot> {
+  if (!isTauri()) {
+    return JSON.parse(JSON.stringify(MOCK_ENVIRONMENT)) as EnvironmentSnapshot;
+  }
+  return invoke<EnvironmentSnapshot>("load_environment_variables");
+}
+
+/**
+ * 新增或修改环境变量。originalName 有值时表示改名；expand 控制是否写 REG_EXPAND_SZ。
+ * 系统变量需要管理员权限，失败时 Rust 会返回可读的错误原因。
+ */
+export async function saveEnvironmentVariable(
+  scope: EnvironmentScope,
+  originalName: string | null,
+  name: string,
+  value: string,
+  expand: boolean
+): Promise<EnvironmentVariable> {
+  if (!isTauri()) {
+    throw new Error("浏览器预览无法修改 Windows 环境变量");
+  }
+  return invoke<EnvironmentVariable>("save_environment_variable", {
+    scope,
+    originalName,
+    name,
+    value,
+    expand,
+  });
+}
+
+export async function deleteEnvironmentVariable(
+  scope: EnvironmentScope,
+  name: string
+): Promise<void> {
+  if (!isTauri()) {
+    throw new Error("浏览器预览无法删除 Windows 环境变量");
+  }
+  return invoke<void>("delete_environment_variable", { scope, name });
+}
+
+const MOCK_ENVIRONMENT_PROFILES: EnvironmentProfile[] = [
+  {
+    id: "mock-java",
+    name: "JAVA",
+    note: "Java 开发环境",
+    enabled: true,
+    variables: [
+      { id: "mock-java-home", name: "JAVA_HOME", value: "D:\\application\\jdk-21", scope: "system", expand: true, append: false },
+      {
+        id: "mock-java-classpath",
+        name: "CLASSPATH",
+        value: ".;%JAVA_HOME%\\lib\\dt.jar;%JAVA_HOME%\\lib\\tools.jar;",
+        scope: "system",
+        expand: true,
+        append: false,
+      },
+      {
+        id: "mock-java-path",
+        name: "Path",
+        value: "%JAVA_HOME%\\bin;%JAVA_HOME%\\jre\\bin",
+        scope: "system",
+        expand: true,
+        append: true,
+      },
+    ],
+  },
+  {
+    id: "mock-go",
+    name: "Go",
+    note: "Go 开发环境",
+    enabled: true,
+    variables: [
+      { id: "mock-go-path-var", name: "GOPATH", value: "%USERPROFILE%\\go", scope: "user", expand: true, append: false },
+      { id: "mock-go-path", name: "Path", value: "C:\\Program Files\\Go\\bin", scope: "user", expand: true, append: true },
+      {
+        id: "mock-go-zone",
+        name: "ZONEINFO",
+        value: "C:\\Program Files\\Go\\lib\\time\\zoneinfo.zip",
+        scope: "system",
+        expand: false,
+        append: false,
+      },
+    ],
+  },
+];
+
+const MOCK_PROFILE_STORE: EnvironmentProfileStore = {
+  profiles: MOCK_ENVIRONMENT_PROFILES,
+  path: "浏览器预览（不会写入文件）",
+  portable: false,
+};
+
+function cloneProfiles(profiles: EnvironmentProfile[]): EnvironmentProfile[] {
+  return JSON.parse(JSON.stringify(profiles)) as EnvironmentProfile[];
+}
+
+function parseProfileContent(content: string): EnvironmentProfile[] {
+  if (!content.trim()) return [];
+  const parsed = JSON.parse(content) as { profiles?: unknown };
+  if (!parsed || !Array.isArray(parsed.profiles)) return [];
+  return parsed.profiles
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object")
+    .map((item) => {
+      const variables = Array.isArray(item.variables) ? item.variables : [];
+      return {
+        id: String(item.id ?? ""),
+        name: String(item.name ?? "未命名方案"),
+        note: String(item.note ?? ""),
+        enabled: item.enabled !== false,
+        variables: variables
+          .filter((variable): variable is Record<string, unknown> => Boolean(variable) && typeof variable === "object")
+          .map((variable) => ({
+            id: String(variable.id ?? ""),
+            name: String(variable.name ?? ""),
+            value: String(variable.value ?? ""),
+            scope: (variable.scope === "user" ? "user" : "system") as EnvironmentScope,
+            expand: variable.expand !== false,
+            append: variable.append !== false,
+          })),
+      };
+    })
+    .filter((profile) => profile.id && profile.name);
+}
+
+/**
+ * 读取应用里保存的环境变量方案（JAVA / Go ...）。
+ * 方案本身只是 key:value 定义，是否已写入以注册表为准，不保存“已设置”状态。
+ */
+export async function loadEnvironmentProfiles(): Promise<EnvironmentProfileStore> {
+  if (!isTauri()) {
+    return {
+      profiles: cloneProfiles(MOCK_PROFILE_STORE.profiles),
+      path: MOCK_PROFILE_STORE.path,
+      portable: false,
+    };
+  }
+  const file = await invoke<LibraryFilePayload>("load_environment_profiles");
+  return {
+    profiles: parseProfileContent(file.content),
+    path: file.path,
+    portable: file.portable,
+  };
+}
+
+/**
+ * 保存环境变量方案。只写方案 JSON，不碰注册表。
+ */
+export async function saveEnvironmentProfiles(
+  profiles: EnvironmentProfile[]
+): Promise<EnvironmentProfileStore> {
+  if (!isTauri()) {
+    return {
+      profiles: cloneProfiles(profiles),
+      path: MOCK_PROFILE_STORE.path,
+      portable: false,
+    };
+  }
+  const content = JSON.stringify({ version: 1, profiles });
+  const file = await invoke<LibraryFilePayload>("save_environment_profiles", { content });
+  return {
+    profiles: cloneProfiles(profiles),
+    path: file.path,
+    portable: file.portable,
+  };
+}
+
+export type { EnvironmentProfileVariable };

@@ -79,6 +79,71 @@ export interface ClearResult {
   errors: string[];
 }
 
+export interface ProcessInfo {
+  pid: number;
+  parentPid: number;
+  name: string;
+  path: string | null;
+  ports: number[];
+  memoryKb: number;
+  threadCount: number;
+  protected: boolean;
+  protectedReason: string | null;
+}
+
+export interface ProcessSnapshot {
+  processes: ProcessInfo[];
+  currentPid: number;
+}
+
+export interface KillProcessesResult {
+  killed: number;
+  failed: number;
+  errors: string[];
+}
+
+export type EnvironmentScope = "user" | "system";
+
+export interface EnvironmentVariable {
+  name: string;
+  value: string;
+  expand: boolean;
+}
+
+export interface EnvironmentScopeSnapshot {
+  variables: EnvironmentVariable[];
+  writable: boolean;
+  error: string | null;
+}
+
+export interface EnvironmentSnapshot {
+  user: EnvironmentScopeSnapshot;
+  system: EnvironmentScopeSnapshot;
+}
+
+export interface EnvironmentProfileVariable {
+  id: string;
+  name: string;
+  value: string;
+  scope: EnvironmentScope;
+  expand: boolean;
+  append: boolean;
+}
+
+export interface EnvironmentProfile {
+  id: string;
+  name: string;
+  note: string;
+  enabled: boolean;
+  variables: EnvironmentProfileVariable[];
+}
+
+export interface EnvironmentProfileStore {
+  profiles: EnvironmentProfile[];
+  path: string;
+  portable: boolean;
+}
+
 export interface ShortcutResult {
   program: string;
   target: TargetKind;

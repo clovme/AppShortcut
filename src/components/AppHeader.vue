@@ -1,5 +1,7 @@
 <script setup lang="ts">
-defineProps<{ included: number; total: number }>();
+type AppView = "processes" | "environment" | "shortcuts";
+defineProps<{ included: number; total: number; view: AppView }>();
+const emit = defineEmits<{ switch: [view: AppView] }>();
 </script>
 
 <template>
@@ -30,16 +32,67 @@ defineProps<{ included: number; total: number }>();
       </div>
       <div class="brand-copy">
         <h1>
-          快捷方式管家
-          <span class="brand-en">AppShortcut</span>
+          WinKit 工具箱
+          <span class="brand-en">TOOLKIT</span>
         </h1>
-        <p>选好程序，桌面与开始菜单快捷方式一键生成</p>
+        <p>
+          {{
+            view === "processes"
+              ? "WebView2、node 等多实例进程，筛选后批量结束"
+              : view === "environment"
+                ? "按 JAVA / Go 方案维护，启动后真实检测"
+                : "选好程序，桌面与开始菜单快捷方式一键生成"
+          }}
+        </p>
       </div>
     </div>
 
     <div class="header-meta">
-      <span class="chip">Windows · 当前用户</span>
-      <span class="chip chip-accent">已加入 {{ included }} / {{ total }}</span>
+      <nav class="view-switch" aria-label="切换页面">
+        <button
+          class="view-tab"
+          :class="{ active: view === 'processes' }"
+          type="button"
+          title="进程管理：批量结束 WebView2、node 等多实例进程"
+          @click="emit('switch', 'processes')"
+        >
+          <svg viewBox="0 0 18 18" width="15" height="15" aria-hidden="true">
+            <rect x="2" y="3" width="14" height="11" rx="2.4" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <path d="M2 6.4h14M4 4.6h.1M6 4.6h.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <path d="M5 9h5M5 11.2h7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.7" />
+          </svg>
+          进程管理
+        </button>
+        <button
+          class="view-tab"
+          :class="{ active: view === 'environment' }"
+          type="button"
+          title="环境变量管理：可视化编辑用户和系统环境变量"
+          @click="emit('switch', 'environment')"
+        >
+          <svg viewBox="0 0 18 18" width="15" height="15" aria-hidden="true">
+            <path d="M2.5 5h7M13.5 5h2M2.5 13h2M8.5 13h7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            <circle cx="11.5" cy="5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <circle cx="6.5" cy="13" r="1.8" fill="none" stroke="currentColor" stroke-width="1.5" />
+          </svg>
+          环境变量
+        </button>
+        <button
+          class="view-tab"
+          :class="{ active: view === 'shortcuts' }"
+          type="button"
+          title="快捷方式：桌面与开始菜单快捷方式管理"
+          @click="emit('switch', 'shortcuts')"
+        >
+          <svg viewBox="0 0 18 18" width="15" height="15" aria-hidden="true">
+            <rect x="2.5" y="4" width="6.5" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <path d="M11.5 6.5h2.2a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2h-2.2M7.5 9h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+          快捷方式
+        </button>
+      </nav>
+      <span class="chip">{{ view === "environment" ? "Windows · 本机" : "Windows · 当前用户" }}</span>
+      <span v-if="view === 'shortcuts'" class="chip chip-accent">已加入 {{ included }} / {{ total }}</span>
     </div>
   </header>
 </template>
@@ -106,6 +159,53 @@ defineProps<{ included: number; total: number }>();
   align-items: center;
   gap: 10px;
   flex: none;
+}
+
+.view-switch {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.view-tab:hover {
+  color: var(--accent-strong);
+  background: #edf5fd;
+}
+
+.view-tab.active {
+  color: var(--accent-strong);
+  border-color: #c9dcef;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.07);
+}
+
+.view-tab svg {
+  flex: none;
+  color: var(--accent);
+}
+
+.view-tab.active svg {
+  color: var(--accent-strong);
 }
 
 .chip {
